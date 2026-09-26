@@ -15,6 +15,17 @@ npm run nml-upload -- --in ./buckets --network staging
 npm run nml-verify -- --in ./buckets --network staging
 ```
 
+After rebuilding `leaks.txt`, use `--restart` for the real upload if the output
+directory contains an upload state from an older build:
+
+```bash
+npm run nml-upload -- --in ./buckets --network staging --restart
+```
+
+This ignores `upload-state.staging.json` and uploads the new build from the
+first chunk. A dry run does not record progress, so `--restart` is only needed
+on the real upload.
+
 ## Storage layout
 
 The EdgeWorker cannot hold 100M items — a namespace caps at 10,000,000 — so the
@@ -28,13 +39,13 @@ value      the next 16 hex chars of every hash sharing that prefix,
            concatenated with no separator, sorted ascending
 ```
 
-| | at 100,000,000 hashes |
-|---|---|
-| items | 65,536 (16⁴) — **0.66%** of the 10M namespace cap, in one namespace |
-| records per bucket | mean 1,526, σ ≈ 39; largest of 65,536 at 5σ ≈ 1,720 |
-| value size | **~23.8 KB** mean, ~26.9 KB at 5σ — the cap is 999,999 bytes |
-| total storage | ~1.6 GB |
-| false positive rate | 20 hex chars = 80 bits discriminating, so ≈ 8.3e-17 per lookup |
+|                     | at 100,000,000 hashes                                               |
+| ------------------- | ------------------------------------------------------------------- |
+| items               | 65,536 (16⁴) — **0.66%** of the 10M namespace cap, in one namespace |
+| records per bucket  | mean 1,526, σ ≈ 39; largest of 65,536 at 5σ ≈ 1,720                 |
+| value size          | **~23.8 KB** mean, ~26.9 KB at 5σ — the cap is 999,999 bytes        |
+| total storage       | ~1.6 GB                                                             |
+| false positive rate | 20 hex chars = 80 bits discriminating, so ≈ 8.3e-25 per lookup      |
 
 **Item count is independent of dataset size.** Growing to 200M changes value
 size, not item count. Three hex chars would mean 4,096 items of ~381 KB, which
@@ -55,6 +66,52 @@ alphabet is not order-preserving.
 
 A refresh **replaces every bucket value wholesale**, so hashes absent from the
 new list simply cease to exist. There are no deletes and no per-hash TTL.
+
+The full SHA-256 is used to select and search a bucket, but only the first 20
+hex characters are stored. For example:
+
+```text
+full hash:  5083dc51f4334d395f8ef0365fdbeb214320c562290d3e16945a707fe0525b68
+item id:    5083
+record:     dc51f4334d395f8e
+```
+
+If two hashes share an item prefix, their fixed-width 16-character records are
+concatenated. For example, an item value may be:
+
+```text
+dc51f4334d395f8ee426cbfdcc40289f
+```
+
+This is two records, `dc51f4334d395f8e` and `e426cbfdcc40289f`, not one long
+record. The reader takes 16-character slices at offsets 0, 16, 32, and so on,
+and binary-searches those slices. No separator is needed.
+
+To inspect a bucket directly with the Akamai CLI, use the environment, namespace,
+group, and four-character item id in this order:
+
+```bash
+akamai edgekv read item staging nomoreleaks hashes 5083
+```
+
+The returned value is the concatenated bucket value. The builder and reader use
+the same `PREFIX_LEN` and `RECORD_LEN`, so a direct read should be interpreted
+in fixed-width chunks rather than as one hash.
+
+To list all bucket item ids in the `hashes` group, use:
+
+```bash
+akamai edgekv list items staging nomoreleaks hashes
+```
+
+The output contains the four-character bucket ids, such as `5083`. Each id can
+then be passed to `read item` to inspect that bucket's concatenated records.
+
+The 20 stored hex characters provide 80 bits of discrimination. A random lookup
+matching a non-listed record is therefore about $2^{-80}$, or `8.3e-25`.
+Two independent hashes colliding in those 20 characters is also extremely
+unlikely; the approximate chance across a list of $n$ hashes is
+$n(n-1)/(2 \cdot 2^{80})$. Full 256-bit hash duplicates are vastly less likely.
 
 ## `nml-build`
 
@@ -141,7 +198,7 @@ Notes on the mechanics, in case they look surprising:
   returns 403 and **blocks the client for ten minutes**. There is nothing to
   gain from running near that limit every few weeks.
 - **The payload is not gzipped**, though the API accepts `Content-Encoding:
-  gzip`. `akamai-edgegrid` JSON-stringifies any non-string request body unless
+gzip`. `akamai-edgegrid` JSON-stringifies any non-string request body unless
   the Content-Type is `application/gzip` — which this endpoint rejects — so
   sending compressed bytes would mean hand-rolling the request signing. Hex
   halves under gzip at best, and a refresh runs every few weeks.
@@ -171,7 +228,8 @@ From the repo root, where the namespace, group, EdgeWorker id and switch key are
 already in `package.json`:
 
 ```bash
-npm run create-edgekv-ns          # staging; repeat for production
+npm run create-edgekv-ns          # staging
+npm run create-edgekv-ns-prod     # production
 EXPIRY=2027-09-01 npm run generate-edgekv-token
 ```
 
@@ -196,7 +254,7 @@ client IP**, and the EdgeWorker emits exactly one structured line per check
 (`{"ev":"check","known":…,"st":…,"ms":…}`) which carries none of those either.
 That log line is the only source of hit statistics; there are no counters.
 
-Akamai's EdgeKV documentation states the store *"should not be used to store
-Sensitive Data."* Whether credential hashes fall under that needs sign-off from
+Akamai's EdgeKV documentation states the store _"should not be used to store
+Sensitive Data."_ Whether credential hashes fall under that needs sign-off from
 Akamai and from privacy review before production. It is a policy question, not
 a technical one.
