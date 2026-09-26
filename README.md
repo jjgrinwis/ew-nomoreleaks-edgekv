@@ -102,6 +102,50 @@ The status is what distinguishes "we checked, the password is clean" from "we
 could not check" — without it a total EdgeKV outage would look exactly like
 nobody's password having leaked.
 
+## Logging and DataStream
+
+The worker emits EdgeWorker logs for the structured check event and for
+fail-open lookup or origin errors. When an Akamai DataStream is configured to
+collect EdgeWorker logs, Akamai can forward these logs to the DataStream's
+configured destination. DataStream setup, filtering, retention and delivery
+are Akamai configuration outside this repository; this code only emits the
+logs.
+
+The structured check event contains only `ev`, `known`, `st` and `ms`. It never
+logs the username, password, full digest, digest prefix, client IP or bucket
+item id.
+
+To attach these logs to an Akamai DataStream 2 stream, create and activate an
+EdgeWorkers stream in Akamai Control Center, then set its stream id before
+building:
+
+```bash
+export EDGEWORKER_DS2_ID="12345"
+export EDGEWORKER_LOG_LEVEL="info"
+source ./local-config.sh
+npm run build
+```
+
+The build then writes this `bundle.json` configuration:
+
+```json
+{
+  "config": {
+    "logging": {
+      "level": "info",
+      "schema": "v1",
+      "ds2id": 12345,
+      "log-uncaught-exceptions": true
+    }
+  }
+}
+```
+
+The stream must be active and accessible to the EdgeWorker before activation.
+DataStream delivery is asynchronous; logs typically appear at the configured
+destination after about two minutes. Leave `EDGEWORKER_DS2_ID` empty when no
+DataStream stream is configured.
+
 ## Key files
 
 - **`src/main.ts`** — the `responseProvider` handler: body parsing, hashing, origin

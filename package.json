@@ -6,7 +6,7 @@
   "config": {
     "ewid": "REPLACE_WITH_EWID",
     "edgerc_section": "default",
-    "description": "EdgeWorker that checks username/password hashes against a leaked-credential list in EdgeKV",
+    "description": "EdgeWorker that checks username/password hashes against a leaked-credential list in EdgeKV. EdgeWorker logs can be forwarded to Akamai DataStream when configured.",
     "ew_name": "ew-nomoreleaks-edgekv",
     "tier": "200",
     "ew_group_id": "REPLACE_WITH_GROUP_ID",
@@ -21,7 +21,7 @@
     "build-ts": "tsc && npm run build-namespace && npm run package:vendor && npm run build-bundle-json",
     "build-namespace": "bash -c '[ -n \"$EDGEKV_NAMESPACE\" ] || { echo \"ERROR: source ./local-config.sh first (sets EDGEKV_NAMESPACE)\" >&2; exit 1; }; perl -0pi -e \"s/__EDGEKV_NAMESPACE__/$EDGEKV_NAMESPACE/g\" built/constants.js'",
     "package:vendor": "test -f vendor/edgekv_tokens.js || (echo 'ERROR: vendor/edgekv_tokens.js is missing - see vendor/edgekv_tokens.js.template or run npm run generate-edgekv-token' && exit 1) && cp vendor/edgekv.js vendor/edgekv_tokens.js built/",
-    "build-bundle-json": "cd built && echo '{\"edgeworker-version\":\"'$npm_package_version'\",\"description\":\"'$npm_package_config_description'\" }' > bundle.json",
+    "build-bundle-json": "cd built && node -e 'const fs=require(\"fs\"); const bundle={\"edgeworker-version\":process.env.npm_package_version,description:process.env.npm_package_config_description}; if (process.env.EDGEWORKER_DS2_ID) bundle.config={logging:{level:process.env.EDGEWORKER_LOG_LEVEL||\"info\",schema:\"v1\",ds2id:Number(process.env.EDGEWORKER_DS2_ID),\"log-uncaught-exceptions\":true}}; fs.writeFileSync(\"bundle.json\",JSON.stringify(bundle)+\"\\n\");'",
     "build-ew-tgz": "mkdir -p dist && cd built && tar czvf ../dist/ew_${EWID:-$npm_package_config_ewid}_$npm_package_version.tgz *",
     "package": "npm run build-ts && npm run build-ew-tgz",
     "upload-edgeworker": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgeworkers \"${args[@]}\" upload \"${EWID:-$npm_package_config_ewid}\" --bundle dist/ew_\"${EWID:-$npm_package_config_ewid}\"_$npm_package_version.tgz'",
