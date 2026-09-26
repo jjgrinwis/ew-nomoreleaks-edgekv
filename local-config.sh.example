@@ -1,0 +1,10 @@
+# local-config.sh.example - committed placeholder template.
+# Copy to local-config.sh, fill in the real account values, and source it
+# before running any npm script that talks to Akamai:
+#   source ./local-config.sh && npm run deploy:staging
+
+export AKAMAI_EDGERC_SECTION="default"
+export AKAMAI_ACCOUNT_SWITCH_KEY=""
+export EW_GROUP_ID="CHANGE_ME"
+export EWID="CHANGE_ME"
+export EW_HOSTNAME="your-hostname.example.com"

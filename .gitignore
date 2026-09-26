@@ -1,0 +1,19 @@
+dist/
+built/
+node_modules/
+*.log
+
+# Real account ids / switch key live here - the .example file is the committed one.
+local-config.sh
+
+# EdgeKV access tokens are live credentials - never commit them.
+# Several patterns on purpose, so a stray copy anywhere is still caught.
+edgekv_tokens.js
+vendor/edgekv_tokens.js
+**/edgekv_tokens.js
+!**/edgekv_tokens.js.template
+
+# CPU profiles captured while tuning the handler
+*.cpuprofil
+*.cpuprofile
+cpu*.json

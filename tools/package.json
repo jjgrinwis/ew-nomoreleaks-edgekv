@@ -1,0 +1,22 @@
+{
+  "name": "nml-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline tooling to build and upload the NoMoreLeaks EdgeKV buckets",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && node --test dist/tools/src/*.test.js",
+    "nml-build": "tsc && node dist/tools/src/build.js",
+    "nml-upload": "tsc && node dist/tools/src/upload.js",
+    "nml-verify": "tsc && node dist/tools/src/verify.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "akamai-edgegrid": "^3.5.2"
+  }
+}

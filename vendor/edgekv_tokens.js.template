@@ -1,0 +1,35 @@
+/*
+Template for vendor/edgekv_tokens.js - copy to that name and fill in the real
+token, or let the CLI write it:
+
+  source ./local-config.sh
+  EXPIRY=<yyyy-mm-dd> npm run generate-edgekv-token
+
+which expands to, with the account values coming from local-config.sh:
+
+  akamai edgekv --section $AKAMAI_EDGERC_SECTION \
+    --accountkey $AKAMAI_ACCOUNT_SWITCH_KEY create token nml-ro \
+    --save_path=./vendor \
+    --staging=allow --production=allow \
+    --ewids=$EWID \
+    --namespace=namespace-nomoreleaks+r \
+    --expiry=<yyyy-mm-dd>
+
+The key MUST be "namespace-<namespacename>", not the bare namespace name. The
+helper library prepends "namespace-" when it looks up credentials, so a bare key
+fails at runtime with "MISSING ACCESS TOKEN". If the CLI writes it without the
+prefix, add the prefix by hand.
+
+Note "+r" above: the EdgeWorker only ever reads, so the embedded token must not
+be able to write. Uploads use separately authenticated management-API calls.
+
+NEVER commit the real file. The reference below is a placeholder.
+*/
+var edgekv_access_tokens = {
+  "namespace-nomoreleaks": {
+    name: "nml-ro",
+    reference: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  },
+};
+
+export { edgekv_access_tokens };

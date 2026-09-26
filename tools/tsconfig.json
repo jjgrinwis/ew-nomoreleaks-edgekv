@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    // ESNext rather than NodeNext on purpose. Under NodeNext tsc decides the
+    // output format per file from the nearest package.json, so the shared files
+    // at the repo root (no "type": "module" there) would compile to CommonJS
+    // while tools/src compiled to ESM, and the mixed dist would not load.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    // akamai-edgegrid is CommonJS with `export =`, so a default import needs this.
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "sourceMap": true
+  },
+  // bucket.ts and constants.ts are pulled in from the EdgeWorker's src/ on
+  // purpose: the builder and the EdgeWorker must agree on PREFIX_LEN and
+  // RECORD_LEN, and sharing the source makes disagreement impossible.
+  // No rootDir is set, so tsc infers the repo root as the common root and emits
+  // dist/tools/src/*.js alongside dist/src/bucket.js and dist/src/constants.js.
+  "include": ["src", "../src/bucket.ts", "../src/constants.ts"]
+}

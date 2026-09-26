@@ -1,0 +1,28 @@
+{
+    "compilerOptions": {
+        "module": "ES2022",
+        "target": "ES2022",
+        "noImplicitAny": false,
+        // EdgeWorkers has no Node API. Pinning types keeps stray @types/node and
+        // @types/jest in node_modules from being auto-included, which otherwise
+        // fails the build with errors that have nothing to do with this code.
+        "types": [
+            "akamai-edgeworkers"
+        ],
+        "outDir": "built",
+        // rootDir src keeps the emit flat: src/main.ts -> built/main.js. The
+        // tarball layout must stay flat, imports reference ./edgekv.js.
+        "rootDir": "src",
+        "sourceMap": false
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "built",
+        "dist",
+        "vendor",
+        "tools"
+    ]
+}

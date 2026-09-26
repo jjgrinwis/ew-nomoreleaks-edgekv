@@ -1,0 +1,54 @@
+{
+  "name": "ew-nomoreleaks-edgekv",
+  "version": "0.0.62",
+  "description": "EdgeWorker that checks username/password hashes against a leaked-credential list in EdgeKV",
+  "main": "main.ts",
+  "config": {
+    "ewid": "REPLACE_WITH_EWID",
+    "edgerc_section": "default",
+    "description": "EdgeWorker that checks username/password hashes against a leaked-credential list in EdgeKV",
+    "ew_name": "ew-nomoreleaks-edgekv",
+    "tier": "200",
+    "ew_group_id": "REPLACE_WITH_GROUP_ID",
+    "accountswitchkey": "",
+    "hostname": "REPLACE_WITH_HOSTNAME",
+    "edgekv_namespace": "nomoreleaks",
+    "edgekv_group": "hashes"
+  },
+  "scripts": {
+    "build": "npm run build-ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "build-ts": "tsc && npm run package:vendor && npm run build-bundle-json",
+    "package:vendor": "test -f vendor/edgekv_tokens.js || (echo 'ERROR: vendor/edgekv_tokens.js is missing - see vendor/edgekv_tokens.js.template or run npm run generate-edgekv-token' && exit 1) && cp vendor/edgekv.js vendor/edgekv_tokens.js built/",
+    "build-bundle-json": "cd built && echo '{\"edgeworker-version\":\"'$npm_package_version'\",\"description\":\"'$npm_package_config_description'\" }' > bundle.json",
+    "build-ew-tgz": "mkdir -p dist && cd built && tar czvf ../dist/ew_${EWID:-$npm_package_config_ewid}_$npm_package_version.tgz *",
+    "package": "npm run build-ts && npm run build-ew-tgz",
+    "upload-edgeworker": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgeworkers \"${args[@]}\" upload \"${EWID:-$npm_package_config_ewid}\" --bundle dist/ew_\"${EWID:-$npm_package_config_ewid}\"_$npm_package_version.tgz'",
+    "activate-edgeworker": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgeworkers \"${args[@]}\" activate \"${EWID:-$npm_package_config_ewid}\" staging $npm_package_version'",
+    "activate-edgeworker-prod": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgeworkers \"${args[@]}\" activate \"${EWID:-$npm_package_config_ewid}\" production $npm_package_version'",
+    "deploy:staging": "npm run lint && npm run package && npm run upload-edgeworker && npm run activate-edgeworker",
+    "status": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgeworkers \"${args[@]}\" status \"${EWID:-$npm_package_config_ewid}\" --versionId $npm_package_version'",
+    "generate-token": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgeworkers \"${args[@]}\" auth --expiry 600 \"${EW_HOSTNAME:-$npm_package_config_hostname}\"'",
+    "list-groups": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgeworkers \"${args[@]}\" lg'",
+    "create-ew-id": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgeworkers \"${args[@]}\" create-id \"${EW_GROUP_ID:-$npm_package_config_ew_group_id}\" --resourceTierId \"$npm_package_config_tier\" \"$npm_package_config_ew_name\"'",
+    "verify-bundle": "tar tzf dist/ew_${EWID:-$npm_package_config_ewid}_$npm_package_version.tgz",
+    "create-edgekv-ns": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgekv \"${args[@]}\" create ns staging \"$npm_package_config_edgekv_namespace\" --retention 0 --groupId \"${EW_GROUP_ID:-$npm_package_config_ew_group_id}\"'",
+    "generate-edgekv-token": "bash -c 'args=(--section \"${AKAMAI_EDGERC_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\" ] && args+=(--accountkey \"${AKAMAI_ACCOUNT_SWITCH_KEY:-$npm_package_config_accountswitchkey}\"); akamai edgekv \"${args[@]}\" create token nml-ro --save_path=./vendor --staging=allow --production=allow --ewids=\"${EWID:-$npm_package_config_ewid}\" --namespace=namespace-\"$npm_package_config_edgekv_namespace\"+r --expiry=\"$EXPIRY\"'"
+  },
+  "keywords": [
+    "edgekv",
+    "nomoreleaks",
+    "edgeworkers"
+  ],
+  "author": "jgrinwis@akamai.com",
+  "license": "ISC",
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/akamai-edgeworkers": "^1.1.20",
+    "@typescript-eslint/eslint-plugin": "^8.70.1",
+    "@typescript-eslint/parser": "^8.70.1",
+    "eslint": "^9.39.5",
+    "typescript": "^5.6.3"
+  }
+}
