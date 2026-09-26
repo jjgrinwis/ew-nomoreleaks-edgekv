@@ -17,3 +17,6 @@ vendor/edgekv_tokens.js
 *.cpuprofil
 *.cpuprofile
 cpu*.json
+
+# no need to store these
+tools/buckets/
