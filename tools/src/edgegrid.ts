@@ -25,10 +25,21 @@ export function requireSection(flag?: string): string {
   if (!section) {
     throw new Error(
       "no ~/.edgerc section given: source ./local-config.sh (sets " +
-        "AKAMAI_EDGERC_SECTION) or pass --section"
+        "AKAMAI_EDGERC_SECTION) or pass --section",
     );
   }
   return section;
+}
+
+export function requireNamespace(flag?: string): string {
+  const namespace = flag ?? process.env["EDGEKV_NAMESPACE"];
+  if (!namespace) {
+    throw new Error(
+      "no EdgeKV namespace given: source ./local-config.sh (sets " +
+        "EDGEKV_NAMESPACE) or pass --namespace",
+    );
+  }
+  return namespace;
 }
 
 export type Network = "staging" | "production";
@@ -42,7 +53,7 @@ export interface ApiResponse {
 
 export interface ApiRequest {
   method: "GET" | "POST" | "PUT";
-  /** Path below EDGEKV_API, e.g. "/networks/staging/namespaces/nomoreleaks/upload". */
+  /** Path below EDGEKV_API, e.g. "/networks/staging/namespaces/<namespace>/upload". */
   path: string;
   query?: Record<string, string>;
   /**

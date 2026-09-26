@@ -12,6 +12,7 @@
     "strict": true,
     // akamai-edgegrid is CommonJS with `export =`, so a default import needs this.
     "esModuleInterop": true,
+    "rootDir": "..",
     "outDir": "dist",
     "sourceMap": true
   },

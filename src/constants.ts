@@ -25,10 +25,11 @@ See tools/README.md for how the buckets are built and uploaded.
 
 PREFIX_LEN and RECORD_LEN must match what the builder used, or every lookup misses.
 */
-export const EDGEKV_NAMESPACE = "nomoreleaks";
+// Replaced in built/constants.js by the namespace from local-config.sh.
+export const EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__";
 export const EDGEKV_GROUP = "hashes";
 export const PREFIX_LEN = 4;
 export const RECORD_LEN = 16;
 
 // Milliseconds. Must be 1-4000; the helper library throws outside that range.
-export const EDGEKV_TIMEOUT_MS = 250;
+export const EDGEKV_TIMEOUT_MS = 1000;

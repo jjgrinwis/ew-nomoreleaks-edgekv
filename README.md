@@ -31,7 +31,7 @@ and no single point of failure on the login path.
 items — so the list is bucketed by hash prefix:
 
 ```
-namespace  nomoreleaks        group  hashes
+namespace  $EDGEKV_NAMESPACE  group  hashes
 item id    first 4 hex chars of the sha256              "1a3f"       → 65,536 items
 value      the next 16 hex chars of every hash sharing that prefix,
            concatenated with no separator, sorted ascending
@@ -67,7 +67,7 @@ To inspect a bucket directly with the Akamai CLI, use the environment, namespace
 group, and four-character item id in this order:
 
 ```bash
-akamai edgekv read item staging nomoreleaks hashes 5083
+akamai edgekv read item staging "$EDGEKV_NAMESPACE" hashes 5083
 ```
 
 The returned value is the concatenated bucket value. A bucket read is a storage
@@ -77,7 +77,7 @@ automatically for each login.
 To list all bucket item ids in the `hashes` group, use:
 
 ```bash
-akamai edgekv list items staging nomoreleaks hashes
+akamai edgekv list items staging "$EDGEKV_NAMESPACE" hashes
 ```
 
 The output contains the four-character bucket ids, such as `5083`. Each id can
@@ -127,7 +127,8 @@ export const UNAME = "username"; // JSON path, e.g. "user.email"
 export const PASSWD = "password";
 export const NO_MORE_LEAKS_HEADER = "x-nomoreleaks";
 
-export const EDGEKV_NAMESPACE = "nomoreleaks";
+export const EDGEKV_NAMESPACE =
+  "<value from EDGEKV_NAMESPACE in local-config.sh>";
 export const EDGEKV_GROUP = "hashes";
 export const PREFIX_LEN = 4; // must match the builder
 export const RECORD_LEN = 16; // must match the builder
@@ -168,8 +169,8 @@ EXPIRY=2027-09-01 npm run generate-edgekv-token
 
 > There is a limit of 20 namespaces per account. If you get an error, skip this step and select and existing namespace which can be retrieved via: npm run list-edgekv-ns
 
-The token is created **read-only** (`namespace-nomoreleaks+r`): the EdgeWorker
-never writes. The key in the token file must be `namespace-nomoreleaks`, with the
+The token is created **read-only** (`namespace-$EDGEKV_NAMESPACE+r`): the EdgeWorker
+never writes. The key in the token file must be `namespace-jgrinwiskv`, with the
 `namespace-` prefix — the helper library prepends it when looking up credentials.
 
 > **`vendor/edgekv_tokens.js` is a live credential.** Never commit it, paste it

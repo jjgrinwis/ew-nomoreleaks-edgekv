@@ -33,6 +33,7 @@ import {
   Network,
   describeError,
   parseArgs,
+  requireNamespace,
   requireNetwork,
   requireSection,
 } from "./edgegrid.js";
@@ -66,7 +67,7 @@ function usage(): never {
       "usage: nml-upload --in <dir> --network staging|production [options]",
       "  --in           directory written by nml-build (buckets.ndjson, fingerprints.json)",
       "  --network      staging or production",
-      "  --namespace    EdgeKV namespace          (default nomoreleaks)",
+      "  --namespace    EdgeKV namespace          (default $EDGEKV_NAMESPACE)",
       "  --group        EdgeKV group              (default hashes)",
       "  --section      ~/.edgerc section         (default $AKAMAI_EDGERC_SECTION)",
       "  --switchkey    account switch key        (default $AKAMAI_ACCOUNT_SWITCH_KEY)",
@@ -74,7 +75,7 @@ function usage(): never {
       "  --rps          requests per second       (default 5, API cap is 18 average)",
       "  --dry-run      send dryRun=true so nothing is written",
       "  --restart      ignore recorded progress and upload every chunk again",
-    ].join("\n")
+    ].join("\n"),
   );
   process.exit(2);
 }
@@ -85,7 +86,7 @@ async function upload(
   namespace: string,
   csv: string,
   items: number,
-  dryRun: boolean
+  dryRun: boolean,
 ): Promise<string> {
   const query: Record<string, string> = { maxItems: String(items) };
   if (dryRun) {
@@ -106,7 +107,9 @@ async function upload(
 
   const location = response.headers["location"];
   if (!location) {
-    throw new Error("bulk upload accepted but returned no Location header to poll");
+    throw new Error(
+      "bulk upload accepted but returned no Location header to poll",
+    );
   }
   // Location is absolute from the API root; strip the base the client re-adds.
   return location.replace(/^\/edgekv\/v1/, "");
@@ -117,7 +120,7 @@ async function awaitJob(
   api: EdgeKvApi,
   jobPath: string,
   /** Records the chunk held, or null on a dry run, where nothing is written. */
-  expectedItems: number | null
+  expectedItems: number | null,
 ): Promise<void> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
 
@@ -137,14 +140,17 @@ async function awaitJob(
           .map((e) => `record ${e.failureRecord}: ${e.message}`)
           .join("; ");
         throw new Error(
-          `job ${job.jobId} completed with ${errors} failed writes - ${detail}`
+          `job ${job.jobId} completed with ${errors} failed writes - ${detail}`,
         );
       }
       // A short job can report fewer successes than records only if something
       // was silently dropped, which nml-verify would catch much later.
-      if (expectedItems !== null && (job.successesCount ?? 0) !== expectedItems) {
+      if (
+        expectedItems !== null &&
+        (job.successesCount ?? 0) !== expectedItems
+      ) {
         throw new Error(
-          `job ${job.jobId} wrote ${job.successesCount} items but the chunk held ${expectedItems}`
+          `job ${job.jobId} wrote ${job.successesCount} items but the chunk held ${expectedItems}`,
         );
       }
       return;
@@ -152,7 +158,7 @@ async function awaitJob(
 
     if (Date.now() > deadline) {
       throw new Error(
-        `job ${job.jobId} still ${job.jobStatus} after ${POLL_TIMEOUT_MS / 1000}s`
+        `job ${job.jobId} still ${job.jobStatus} after ${POLL_TIMEOUT_MS / 1000}s`,
       );
     }
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
@@ -169,8 +175,13 @@ async function writeMeta(
   network: Network,
   namespace: string,
   group: string,
-  meta: { prefix_len: number; record_len: number; built_at: string; total_records: number },
-  dryRun: boolean
+  meta: {
+    prefix_len: number;
+    record_len: number;
+    built_at: string;
+    total_records: number;
+  },
+  dryRun: boolean,
 ): Promise<void> {
   const value = [
     `built=${meta.built_at}`,
@@ -185,7 +196,7 @@ async function writeMeta(
     namespace,
     csvLine(group, { item: "_meta", value }),
     1,
-    dryRun
+    dryRun,
   );
   await awaitJob(api, jobPath, dryRun ? null : 1);
   console.log(`_meta = ${value}`);
@@ -199,13 +210,15 @@ async function main(): Promise<void> {
   }
 
   const network = requireNetwork(flags["network"]);
-  const namespace = flags["namespace"] ?? "nomoreleaks";
+  const namespace = requireNamespace(flags["namespace"]);
   const group = flags["group"] ?? "hashes";
   const chunkBytes = Number(flags["chunk-bytes"] ?? DEFAULT_CHUNK_BYTES);
   const dryRun = bools.has("dry-run");
 
   const bucketsPath = join(inDir, "buckets.ndjson");
-  const meta = JSON.parse(readFileSync(join(inDir, "fingerprints.json"), "utf8")) as {
+  const meta = JSON.parse(
+    readFileSync(join(inDir, "fingerprints.json"), "utf8"),
+  ) as {
     prefix_len: number;
     record_len: number;
     built_at: string;
@@ -226,7 +239,7 @@ async function main(): Promise<void> {
     if (saved.built_at !== meta.built_at || saved.namespace !== namespace) {
       throw new Error(
         `${statePath} records a different build (${saved.built_at} -> ${saved.namespace}); ` +
-          "finish or delete it, or pass --restart"
+          "finish or delete it, or pass --restart",
       );
     }
     state = saved;
@@ -241,16 +254,27 @@ async function main(): Promise<void> {
 
   console.log(
     `uploading ${bucketsPath} to ${namespace}/${group} on ${network}` +
-      (dryRun ? " (dry run - nothing is written)" : "")
+      (dryRun ? " (dry run - nothing is written)" : ""),
   );
 
   const started = Date.now();
-  for await (const chunk of chunkBuckets(readBuckets(bucketsPath), group, chunkBytes)) {
+  for await (const chunk of chunkBuckets(
+    readBuckets(bucketsPath),
+    group,
+    chunkBytes,
+  )) {
     if (chunk.index < state.chunks_done) {
       continue;
     }
 
-    const jobPath = await upload(api, network, namespace, chunk.csv, chunk.items, dryRun);
+    const jobPath = await upload(
+      api,
+      network,
+      namespace,
+      chunk.csv,
+      chunk.items,
+      dryRun,
+    );
     await awaitJob(api, jobPath, dryRun ? null : chunk.items);
 
     state.chunks_done = chunk.index + 1;
@@ -263,7 +287,7 @@ async function main(): Promise<void> {
     const elapsed = (Date.now() - started) / 1000;
     console.log(
       `chunk ${chunk.index} ok - ${chunk.items} items, ` +
-        `${state.items_done.toLocaleString()} total, ${elapsed.toFixed(0)}s elapsed`
+        `${state.items_done.toLocaleString()} total, ${elapsed.toFixed(0)}s elapsed`,
     );
   }
 
@@ -271,16 +295,18 @@ async function main(): Promise<void> {
 
   console.log(
     `\ndone: ${state.items_done.toLocaleString()} buckets on ${network} in ` +
-      `${((Date.now() - started) / 1000).toFixed(0)}s`
+      `${((Date.now() - started) / 1000).toFixed(0)}s`,
   );
   console.log(
     dryRun
       ? "dry run only - re-run without --dry-run to write"
-      : `allow ~10s for propagation, then: npm run nml-verify -- --in ${inDir} --network ${network}`
+      : `allow ~10s for propagation, then: npm run nml-verify -- --in ${inDir} --network ${network}`,
   );
 }
 
 main().catch((error) => {
-  console.error(`nml-upload failed: ${error instanceof Error ? error.message : error}`);
+  console.error(
+    `nml-upload failed: ${error instanceof Error ? error.message : error}`,
+  );
   process.exit(1);
 });

@@ -19,7 +19,7 @@ import { UNAME, PASSWD, NO_MORE_LEAKS_HEADER } from "./constants.js";
 
 export async function responseProvider(request: EW.ResponseProviderRequest) {
   const contentType = request.getHeader("content-type")?.[0]?.toLowerCase();
-  
+
   let body: object | null = null;
   let formBody: string | null = null;
 
@@ -35,7 +35,7 @@ export async function responseProvider(request: EW.ResponseProviderRequest) {
     } catch (error) {
       logger.error(
         `Failed to parse request body with Content-Type: ${contentType}`,
-        error
+        error,
       );
     }
   } else {
@@ -51,9 +51,13 @@ export async function responseProvider(request: EW.ResponseProviderRequest) {
 
   if (body && isValidBody(body)) {
     try {
+      const username = getNestedValue(body, UNAME);
+      const password = getNestedValue(body, PASSWD);
+      if (typeof username !== "string" || typeof password !== "string") {
+        throw new TypeError("credential fields must be strings");
+      }
       const normalizedUnamePasswd =
-        getNestedValue(body, UNAME).toLowerCase().normalize("NFC") +
-        getNestedValue(body, PASSWD).normalize("NFC");
+        username.toLowerCase().normalize("NFC") + password.normalize("NFC");
 
       key = await generateDigest("SHA-256", normalizedUnamePasswd);
     } catch (error) {
@@ -71,14 +75,14 @@ export async function responseProvider(request: EW.ResponseProviderRequest) {
     }
   } else {
     logger.error(
-      `${UNAME} and/or ${PASSWD} fields not provided in request body`
+      `${UNAME} and/or ${PASSWD} fields not provided in request body`,
     );
   }
 
   // The only per-check telemetry, and the source of hit statistics.
   // Deliberately carries no hash, no hash prefix, no username and no client IP.
   logger.log(
-    JSON.stringify({ ev: "check", known: known, st: status, ms: lookupMs })
+    JSON.stringify({ ev: "check", known: known, st: status, ms: lookupMs }),
   );
 
   const reqBody = formBody || JSON.stringify(body);
@@ -95,7 +99,7 @@ export async function responseProvider(request: EW.ResponseProviderRequest) {
   return createResponse(
     originResponse.status,
     removeUnsafeHeaders(originResponse.getHeaders()),
-    originResponse.body
+    originResponse.body,
   );
 }
 
@@ -103,11 +107,10 @@ async function originRequest(
   request: EW.ResponseProviderRequest,
   body: string,
   known: boolean,
-  informHeader: string = NO_MORE_LEAKS_HEADER
+  informHeader: string = NO_MORE_LEAKS_HEADER,
 ) {
   let requestHeaders = removeUnsafeHeaders(request.getHeaders());
 
-  requestHeaders["ew-bypass"] = [String(true)];
   requestHeaders[informHeader] = [String(known)];
 
   const originResponse = await httpRequest(request.url, {

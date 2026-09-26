@@ -32,7 +32,7 @@ The EdgeWorker cannot hold 100M items — a namespace caps at 10,000,000 — so 
 hashes are bucketed by prefix:
 
 ```
-namespace  nomoreleaks
+namespace  $EDGEKV_NAMESPACE
 group      hashes
 item id    first 4 hex chars of the sha256              "1a3f"
 value      the next 16 hex chars of every hash sharing that prefix,
@@ -91,7 +91,7 @@ To inspect a bucket directly with the Akamai CLI, use the environment, namespace
 group, and four-character item id in this order:
 
 ```bash
-akamai edgekv read item staging nomoreleaks hashes 5083
+akamai edgekv read item staging "$EDGEKV_NAMESPACE" hashes 5083
 ```
 
 The returned value is the concatenated bucket value. The builder and reader use
@@ -101,7 +101,7 @@ in fixed-width chunks rather than as one hash.
 To list all bucket item ids in the `hashes` group, use:
 
 ```bash
-akamai edgekv list items staging nomoreleaks hashes
+akamai edgekv list items staging "$EDGEKV_NAMESPACE" hashes
 ```
 
 The output contains the four-character bucket ids, such as `5083`. Each id can
@@ -148,7 +148,7 @@ growth.
 
 ```
 nml-upload --in <dir> --network staging|production [--dry-run] [--restart]
-           [--namespace nomoreleaks] [--group hashes] [--section gss]
+           [--namespace "$EDGEKV_NAMESPACE"] [--group hashes] [--section gss]
            [--switchkey <key>] [--chunk-bytes 8388608] [--rps 5]
 ```
 
@@ -233,7 +233,7 @@ npm run create-edgekv-ns-prod     # production
 EXPIRY=2027-09-01 npm run generate-edgekv-token
 ```
 
-The token is created **read-only** (`namespace-nomoreleaks+r`): the EdgeWorker
+The token is created **read-only** (`namespace-$EDGEKV_NAMESPACE+r`): the EdgeWorker
 never writes, so the token embedded in the bundle must not be able to. Writes go
 through this tooling, authenticated separately.
 

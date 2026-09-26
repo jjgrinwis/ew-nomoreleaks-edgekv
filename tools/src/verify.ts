@@ -24,6 +24,7 @@ import {
   Network,
   describeError,
   parseArgs,
+  requireNamespace,
   requireNetwork,
   requireSection,
 } from "./edgegrid.js";
@@ -46,12 +47,12 @@ function usage(): never {
       "  --network    staging or production",
       "  --samples    buckets to check            (default 200)",
       "  --seed       sample seed, for a repeatable run",
-      "  --namespace  EdgeKV namespace            (default nomoreleaks)",
+      "  --namespace  EdgeKV namespace            (default $EDGEKV_NAMESPACE)",
       "  --group      EdgeKV group                (default hashes)",
       "  --section    ~/.edgerc section           (default $AKAMAI_EDGERC_SECTION)",
       "  --switchkey  account switch key          (default $AKAMAI_ACCOUNT_SWITCH_KEY)",
       "  --rps        requests per second         (default 5)",
-    ].join("\n")
+    ].join("\n"),
   );
   process.exit(2);
 }
@@ -84,7 +85,7 @@ async function readItem(
   network: Network,
   namespace: string,
   group: string,
-  item: string
+  item: string,
 ): Promise<string | null> {
   const response = await api.send({
     method: "GET",
@@ -101,7 +102,9 @@ async function readItem(
     throw new Error(`read of item ${item} failed: ${describeError(response)}`);
   }
   if (typeof response.body !== "string") {
-    throw new Error(`read of item ${item} returned ${typeof response.body}, not text`);
+    throw new Error(
+      `read of item ${item} returned ${typeof response.body}, not text`,
+    );
   }
   return response.body;
 }
@@ -114,19 +117,19 @@ async function main(): Promise<void> {
 
   const inDir = flags["in"]!;
   const network = requireNetwork(flags["network"]);
-  const namespace = flags["namespace"] ?? "nomoreleaks";
+  const namespace = requireNamespace(flags["namespace"]);
   const group = flags["group"] ?? "hashes";
   const samples = Number(flags["samples"] ?? DEFAULT_SAMPLES);
   const seed = Number(flags["seed"] ?? Date.now() % 0x7fffffff);
 
   const expected = JSON.parse(
-    readFileSync(join(inDir, "fingerprints.json"), "utf8")
+    readFileSync(join(inDir, "fingerprints.json"), "utf8"),
   ) as Fingerprints;
 
   if (expected.record_len !== RECORD_LEN) {
     throw new Error(
       `fingerprints.json was built with record_len ${expected.record_len} but this ` +
-        `checkout uses ${RECORD_LEN}; the EdgeWorker would miss every lookup`
+        `checkout uses ${RECORD_LEN}; the EdgeWorker would miss every lookup`,
     );
   }
 
@@ -139,7 +142,7 @@ async function main(): Promise<void> {
   const items = sample(Object.keys(expected.buckets), samples, seed);
   console.log(
     `checking ${items.length} of ${Object.keys(expected.buckets).length.toLocaleString()} ` +
-      `buckets in ${namespace}/${group} on ${network} (seed ${seed})`
+      `buckets in ${namespace}/${group} on ${network} (seed ${seed})`,
   );
 
   const problems: string[] = [];
@@ -153,7 +156,9 @@ async function main(): Promise<void> {
     }
     const got = { n: value.length / RECORD_LEN, fp: fingerprint(value) };
     if (value.length % RECORD_LEN !== 0) {
-      problems.push(`${item}: length ${value.length} is not a multiple of ${RECORD_LEN}`);
+      problems.push(
+        `${item}: length ${value.length} is not a multiple of ${RECORD_LEN}`,
+      );
     } else if (got.n !== want.n) {
       problems.push(`${item}: ${got.n} records, expected ${want.n}`);
     } else if (got.fp !== want.fp) {
@@ -165,7 +170,7 @@ async function main(): Promise<void> {
   console.log(`_meta: ${meta ?? "missing"}`);
   if (meta !== null && !meta.includes(`built=${expected.built_at}`)) {
     problems.push(
-      `_meta reports a different build than this fingerprints.json (${expected.built_at})`
+      `_meta reports a different build than this fingerprints.json (${expected.built_at})`,
     );
   }
 
@@ -174,18 +179,22 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.error(`\n${problems.length} of ${items.length} sampled buckets did not match:`);
+  console.error(
+    `\n${problems.length} of ${items.length} sampled buckets did not match:`,
+  );
   for (const problem of problems.slice(0, 40)) {
     console.error(`  ${problem}`);
   }
   console.error(
     "\nIf the upload just finished, wait ~10s for propagation and re-run: EdgeKV is\n" +
-      "eventually consistent. Persistent mismatches mean the upload did not land."
+      "eventually consistent. Persistent mismatches mean the upload did not land.",
   );
   process.exit(1);
 }
 
 main().catch((error) => {
-  console.error(`nml-verify failed: ${error instanceof Error ? error.message : error}`);
+  console.error(
+    `nml-verify failed: ${error instanceof Error ? error.message : error}`,
+  );
   process.exit(1);
 });

@@ -22,7 +22,7 @@ Manager variable in the lookup path: EdgeKV is read directly.
    lowercase hex, no separator. **This contract is shared with the offline
    builder, which consumes an already-hashed list — do not re-derive it there.**
 4. `isKnownLeaked(hash)` reads one EdgeKV item and binary-searches its value.
-5. The request goes to origin with `x-nomoreleaks` and `ew-bypass`.
+5. The request goes to origin with `x-nomoreleaks`.
 6. One structured log line per check.
 
 ## Storage layout (the thing to understand first)
@@ -119,12 +119,14 @@ The list is credential-derived, i.e. pseudonymous personal data under GDPR.
 
 **Never log or store: client IP, username, password, the full hash, or any prefix
 of it** — a 5-char hash prefix is a stable correlatable identifier, and the item
-id *is* a hash prefix, so it must not appear in an error message either.
+id _is_ a hash prefix, so it must not appear in an error message either.
 
 There is exactly one log line per check:
 
 ```typescript
-logger.log(JSON.stringify({ ev: "check", known: known, st: status, ms: lookupMs }));
+logger.log(
+  JSON.stringify({ ev: "check", known: known, st: status, ms: lookupMs }),
+);
 ```
 
 This is the **only** source of hit statistics. Do not add EdgeKV hit counters: an
@@ -137,14 +139,14 @@ patterns; never commit it or put it in documentation. Use
 
 ## Open issues
 
-- Akamai's EdgeKV docs say the store *"should not be used to store Sensitive
-  Data."* Whether credential hashes fall under that needs Akamai and privacy
+- Akamai's EdgeKV docs say the store _"should not be used to store Sensitive
+  Data."_ Whether credential hashes fall under that needs Akamai and privacy
   sign-off before production. Policy question, unresolved.
 - **Unrelated repo, real credential exposure.** `snippets-logs.log` is committed
   in commit `7d939af` of the separate repo
   `github.com/jjgrinwis/ew-nomoreleaks-harperdb` and contains plaintext Akamai
   API client tokens and signing keys. Those credentials need rotating and the
-  file purging from that repo's history. Nothing to do in *this* repo — it is
+  file purging from that repo's history. Nothing to do in _this_ repo — it is
   recorded here only so the task is not lost.
 - The predecessor EdgeWorker (id 90754) becomes dead once this ships: deactivate
   it and drop `PMUSER_AUTH_HEADER` from the delivery configuration.
@@ -158,7 +160,7 @@ patterns; never commit it or put it in documentation. Use
   `include: ["src/**/*"]`, `types: ["akamai-edgeworkers"]` (no Node APIs exist
   on the platform), `exclude: ["node_modules", "built", "dist", "vendor", "tools"]`.
 - `strict` is **not** set, so `strictNullChecks` is off. VS Code's implicit
-  project config turns it *on*, so a file the TS server does not associate with
+  project config turns it _on_, so a file the TS server does not associate with
   this tsconfig shows phantom "null is not assignable" errors that
   `npm run typecheck` does not. `.vscode/settings.json` pins
   `typescript.tsdk`; reload the window if the two ever disagree.

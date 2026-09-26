@@ -17,7 +17,7 @@ export function hasNestedProperty(obj: object, path: string): boolean {
     }, obj) !== undefined
   );
 }
-export function getNestedValue(obj: object, path: string): any {
+export function getNestedValue(obj: object, path: string): unknown {
   return path.split(".").reduce((acc, key) => {
     if (acc && (typeof acc === "object" || Array.isArray(acc))) {
       return acc[key];
@@ -31,9 +31,13 @@ export function isValidBody(body: object): boolean {
     hasBody &&
     hasNestedProperty(body, UNAME) &&
     hasNestedProperty(body, PASSWD);
+  const username = hasBody ? getNestedValue(body, UNAME) : undefined;
+  const password = hasBody ? getNestedValue(body, PASSWD) : undefined;
   const bodyIsValid =
     hasCredentials &&
-    getNestedValue(body, UNAME).length > 1 &&
-    getNestedValue(body, PASSWD).length > 2;
+    typeof username === "string" &&
+    typeof password === "string" &&
+    username.length > 1 &&
+    password.length > 2;
   return bodyIsValid;
 }
