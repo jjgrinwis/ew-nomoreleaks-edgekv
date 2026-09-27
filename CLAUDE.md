@@ -89,11 +89,29 @@ cd tools && npm test              # 22 unit tests, no credentials needed
 `build` and `package` never touch the network. Only `deploy:staging`,
 `upload-edgeworker` and the two `activate-*` scripts do.
 
-`package.json`'s `config.*` block holds `REPLACE_WITH_*` placeholders on
-purpose — real ids live in the gitignored `local-config.sh` (see
-`local-config.sh.example`) and override the placeholders via
+**`local-config.sh` is the single source of truth for every account value.**
+It is gitignored (see `local-config.sh.example`) and exports
 `AKAMAI_EDGERC_SECTION`, `AKAMAI_ACCOUNT_SWITCH_KEY`, `EW_GROUP_ID`, `EWID`,
-`EW_HOSTNAME`. Never write real values back into `package.json`.
+`EW_HOSTNAME`, `EDGEKV_NAMESPACE`, `EDGEWORKER_DS2_ID`,
+`EDGEWORKER_LOG_LEVEL`. Scripts read those env vars **directly**, with no
+`package.json` fallback: each one is guarded with
+`"${VAR:?not set - source ./local-config.sh first}"`, so forgetting to
+source fails immediately and names the missing variable instead of sending a
+placeholder to the Akamai API. Never add an account value back into
+`config.*` — a second place to set the same id is how staging ends up
+pointing at the wrong namespace.
+
+`config.*` keeps only project identity that is not account-specific and not
+in `local-config.sh`: `description` (goes into `bundle.json`), `ew_name` and
+`tier` (both only used by `create-ew-id`).
+
+`EDGEKV_NAMESPACE` is the one value `local-config.sh` has to reach *edge-side*
+code, which has no access to your shell. `src/constants.ts` therefore commits
+a placeholder, `export const EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__";`, and
+the `build-namespace` step rewrites it in `built/constants.js` after `tsc`.
+`src/` is never modified, so the real namespace never lands in git and the
+substitution is idempotent across rebuilds. `EDGEKV_GROUP` needs none of
+this — it is a fixed `"hashes"` literal, identical on every account.
 
 ## Constraints to respect
 

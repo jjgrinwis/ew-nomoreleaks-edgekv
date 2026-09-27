@@ -43,6 +43,11 @@ order-preserving in ASCII, so `bucket.ts` binary-searches the returned value as 
 plain string with `substring()` — no parsing and no array allocation in the
 handler.
 
+Each bucket can hold up to 62,499 records: the EdgeKV value limit is about
+999,999 bytes and each record uses 16 hex characters (999,999 / 16). At 200M
+hashes, a bucket contains about 3,052 records on average, leaving substantial
+headroom.
+
 The full SHA-256 is used to select and search a bucket, but only the first 20
 hex characters are stored. For example:
 
@@ -176,7 +181,7 @@ export const EDGEKV_NAMESPACE =
 export const EDGEKV_GROUP = "hashes";
 export const PREFIX_LEN = 4; // must match the builder
 export const RECORD_LEN = 16; // must match the builder
-export const EDGEKV_TIMEOUT_MS = 250; // 1-4000; never retried
+export const EDGEKV_TIMEOUT_MS = 1000; // 1-4000; never retried
 ```
 
 Dotted paths (`user.email`) work. The bracket-index form (`users[0].email`) is
