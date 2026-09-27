@@ -1,6 +1,6 @@
 {
   "name": "ew-nomoreleaks-edgekv",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "EdgeWorker that checks username/password hashes against a leaked-credential list in EdgeKV",
   "main": "main.ts",
   "config": {

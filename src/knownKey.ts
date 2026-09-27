@@ -57,12 +57,16 @@ export async function isKnownLeaked(hash: string): Promise<LookupResult> {
   const record = recordOf(hash);
 
   try {
+    logger.log("nml: edgekv subrequest start");
     const value = await edgeKv.getText({
       item: item,
       default_value: null,
       timeout: EDGEKV_TIMEOUT_MS,
       num_retries_on_timeout: 0,
     });
+    logger.log(
+      `nml: edgekv subrequest complete, result ${value === null ? "miss" : "value"}`,
+    );
 
     // 404 on the bucket means no hash carries this prefix - a clean miss, not an error.
     if (value === null) {
@@ -71,7 +75,7 @@ export async function isKnownLeaked(hash: string): Promise<LookupResult> {
 
     if (value.length % RECORD_LEN !== 0) {
       logger.error(
-        `nml: bucket length ${value.length} is not a multiple of ${RECORD_LEN}`
+        `nml: bucket length ${value.length} is not a multiple of ${RECORD_LEN}`,
       );
       return { known: false, status: "unavailable" };
     }
@@ -79,7 +83,11 @@ export async function isKnownLeaked(hash: string): Promise<LookupResult> {
     return { known: bucketContains(value, record), status: "ok" };
   } catch (error) {
     // Deliberately logs only the status - never the item id, which is a hash prefix.
-    logger.error(`nml: edgekv lookup failed, status ${error && error.status}`);
+    const status =
+      typeof error === "object" && error !== null && "status" in error
+        ? error.status
+        : 0;
+    logger.error(`nml: edgekv lookup failed, status ${status}`);
     return { known: false, status: "unavailable" };
   }
 }

@@ -45,7 +45,7 @@ value      the next 16 hex chars of every hash sharing that prefix,
 | records per bucket  | mean 1,526, σ ≈ 39; largest of 65,536 at 5σ ≈ 1,720                 |
 | value size          | **~23.8 KB** mean, ~26.9 KB at 5σ — the cap is 999,999 bytes        |
 | total storage       | ~1.6 GB                                                             |
-| false positive rate | 20 hex chars = 80 bits discriminating, so ≈ 8.3e-25 per lookup      |
+| false positive rate | about 1 in 12 quadrillion per random lookup across 100M records     |
 
 **Item count is independent of dataset size.** Growing to 200M changes value
 size, not item count. Three hex chars would mean 4,096 items of ~381 KB, which
@@ -107,11 +107,11 @@ akamai edgekv list items staging "$EDGEKV_NAMESPACE" hashes
 The output contains the four-character bucket ids, such as `5083`. Each id can
 then be passed to `read item` to inspect that bucket's concatenated records.
 
-The 20 stored hex characters provide 80 bits of discrimination. A random lookup
-matching a non-listed record is therefore about $2^{-80}$, or `8.3e-25`.
-Two independent hashes colliding in those 20 characters is also extremely
-unlikely; the approximate chance across a list of $n$ hashes is
-$n(n-1)/(2 \cdot 2^{80})$. Full 256-bit hash duplicates are vastly less likely.
+Only 20 hex characters of each hash are stored, giving 80 bits of discrimination.
+With 100 million stored records, the chance of any accidental collision in
+those stored values is about 1 in 240 million. A random lookup matching any
+stored record by accident is still only about 1 in 12 quadrillion. A collision
+in the full 256-bit SHA-256 value is vastly less likely.
 
 ## `nml-build`
 
@@ -251,7 +251,7 @@ would silently expire buckets between refreshes.
 The list is credential-derived and therefore pseudonymous personal data under
 GDPR. **Nothing here logs a hash, a hash prefix, a username, a password or a
 client IP**, and the EdgeWorker emits exactly one structured line per check
-(`{"ev":"check","known":…,"st":…,"ms":…}`) which carries none of those either.
+(`{"ev":"check","known":…,"st":…}`) which carries none of those either.
 That log line is the only source of hit statistics; there are no counters.
 
 Akamai's EdgeKV documentation states the store _"should not be used to store

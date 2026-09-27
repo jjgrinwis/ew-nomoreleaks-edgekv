@@ -124,9 +124,7 @@ id _is_ a hash prefix, so it must not appear in an error message either.
 There is exactly one log line per check:
 
 ```typescript
-logger.log(
-  JSON.stringify({ ev: "check", known: known, st: status, ms: lookupMs }),
-);
+logger.log(JSON.stringify({ ev: "check", known: known, st: status }));
 ```
 
 This is the **only** source of hit statistics. Do not add EdgeKV hit counters: an

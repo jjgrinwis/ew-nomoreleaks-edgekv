@@ -83,11 +83,11 @@ akamai edgekv list items staging "$EDGEKV_NAMESPACE" hashes
 The output contains the four-character bucket ids, such as `5083`. Each id can
 then be passed to `read item` to inspect that bucket's concatenated records.
 
-The 20 stored hex characters provide 80 bits of discrimination. A random lookup
-matching a non-listed record is therefore about $2^{-80}$, or `8.3e-25`.
-Two independent hashes colliding in those 20 characters is also extremely
-unlikely; the approximate chance across a list of $n$ hashes is
-$n(n-1)/(2 \cdot 2^{80})$. Full 256-bit hash duplicates are vastly less likely.
+Only 20 hex characters of each hash are stored, giving 80 bits of discrimination.
+With 100 million stored records, the chance of any accidental collision in
+those stored values is about 1 in 240 million. A random lookup matching any
+stored record by accident is still only about 1 in 12 quadrillion. A collision
+in the full 256-bit SHA-256 value is vastly less likely.
 
 `src/bucket.ts` and `src/constants.ts` are shared source between the EdgeWorker and the
 offline tooling in [`tools/`](tools/README.md), so the builder and the reader
@@ -111,7 +111,7 @@ configured destination. DataStream setup, filtering, retention and delivery
 are Akamai configuration outside this repository; this code only emits the
 logs.
 
-The structured check event contains only `ev`, `known`, `st` and `ms`. It never
+The structured check event contains only `ev`, `known` and `st`. It never
 logs the username, password, full digest, digest prefix, client IP or bucket
 item id.
 
@@ -214,8 +214,10 @@ EXPIRY=2027-09-01 npm run generate-edgekv-token
 > There is a limit of 20 namespaces per account. If you get an error, skip this step and select and existing namespace which can be retrieved via: npm run list-edgekv-ns
 
 The token is created **read-only** (`namespace-$EDGEKV_NAMESPACE+r`): the EdgeWorker
-never writes. The key in the token file must be `namespace-jgrinwiskv`, with the
-`namespace-` prefix — the helper library prepends it when looking up credentials.
+never writes. For the deployed namespace, the key in the token file is
+`namespace-nomoreleaks`, with the `namespace-` prefix — the helper library
+prepends it when looking up credentials. The development namespace in
+`local-config.sh` may be different.
 
 > **`vendor/edgekv_tokens.js` is a live credential.** Never commit it, paste it
 > into a ticket, or put it in documentation. Use
@@ -256,11 +258,38 @@ http --form POST https://$EW_HOSTNAME/login \
 Debug logging:
 
 ```
-Pragma: akamai-x-ew-debug-rp
+Pragma:akamai-x-ew-debug-subs
 ```
 
-`akamai-x-ew-subworkers` and `akamai-x-ew-debug-subs` are no longer relevant —
-there is no subworker.
+To measure the real EdgeKV lookup time on staging, request an EdgeWorker trace
+token and send the subrequest debug pragma with the login request:
+
+```bash
+source ./local-config.sh
+trace_token=$(akamai edgeworkers \
+  --section "$AKAMAI_EDGERC_SECTION" \
+  --accountkey "$AKAMAI_ACCOUNT_SWITCH_KEY" \
+  auth --expiry 600 "$EW_HOSTNAME" |
+  sed -n 's/^Akamai-EW-Trace: //p')
+
+http --form --print=h POST "https://$EW_HOSTNAME/login" \
+  "Akamai-EW-Trace:$trace_token" \
+  'Pragma:akamai-x-ew-debug-subs' \
+  username=test@example.com password=testpassword
+```
+
+Find the `X-Akamai-EdgeWorker-Subrequests` entries in the trace output. The
+`id=1` `GET` is the EdgeKV lookup; its `dur` and `total_dur` values are the
+lookup time in milliseconds. The `id=2` `POST` is the request to the origin.
+For example:
+
+```text
+X-Akamai-EdgeWorker-Subrequests: ew=111801; evt=RP; id=1; method=GET; url="https://edgekv.../items/<bucket-prefix>"; rsp=200; dur=3; total_dur=3
+X-Akamai-EdgeWorker-Subrequests: ew=111801; evt=RP; id=2; method=POST; url="https://ew.grinwis.com/login"; rsp=200; dur=33; total_dur=34
+```
+
+The EdgeKV URL contains the bucket's hash prefix. Treat trace output as
+sensitive debugging data and do not paste it into tickets or logs.
 
 Unit tests for the bucket layout and the CSV chunking live in `tools/` (`npm test`
 there, no credentials required). The EdgeWorker itself has no host-side test
@@ -276,11 +305,11 @@ GDPR.
 prefix of it.** The EdgeWorker emits exactly one structured line per check:
 
 ```json
-{ "ev": "check", "known": false, "st": "ok", "ms": 12 }
+{ "ev": "check", "known": false, "st": "ok" }
 ```
 
-`st` is `ok`, `unavailable` or `nocreds`. That line is the **only** source of hit
-statistics — aggregate it via DataStream 2. There are no EdgeKV hit counters: an
+`st` is `ok` or `unavailable`. That line is the **only** source of hit statistics
+— aggregate it via DataStream 2. There are no EdgeKV hit counters: an
 approximate counter under eventual consistency with last-writer-wins converges
 toward one region's increments, a multiplicative error that sharding cannot fix.
 

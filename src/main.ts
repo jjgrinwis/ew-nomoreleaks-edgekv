@@ -47,7 +47,6 @@ export async function responseProvider(request: EW.ResponseProviderRequest) {
   // "nocreds" = this request carried no credentials, so there was nothing to check.
   // Kept distinct from "ok" so the logs do not conflate it with a clean password.
   let status: LookupStatus | "nocreds" = "nocreds";
-  let lookupMs = 0;
 
   if (body && isValidBody(body)) {
     try {
@@ -65,11 +64,9 @@ export async function responseProvider(request: EW.ResponseProviderRequest) {
     }
 
     if (key) {
-      const start = Date.now();
       const result = await isKnownLeaked(key);
       known = result.known;
       status = result.status;
-      lookupMs = Date.now() - start;
     } else {
       status = "unavailable";
     }
@@ -81,9 +78,7 @@ export async function responseProvider(request: EW.ResponseProviderRequest) {
 
   // The only per-check telemetry, and the source of hit statistics.
   // Deliberately carries no hash, no hash prefix, no username and no client IP.
-  logger.log(
-    JSON.stringify({ ev: "check", known: known, st: status, ms: lookupMs }),
-  );
+  logger.log(JSON.stringify({ ev: "check", known: known, st: status }));
 
   const reqBody = formBody || JSON.stringify(body);
 
